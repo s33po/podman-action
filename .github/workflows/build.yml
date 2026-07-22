@@ -1,0 +1,65 @@
+name: Build Container
+on:
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+env:
+  IMAGE_FULL: ghcr.io/${{ github.repository }}
+  DEFAULT_TAG: "latest"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build_push:
+    name: Build and push container
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v7
+
+      - name: "Build"
+        uses: redhat-actions/buildah-build@v2.13
+        with:
+          containerfiles: ./Containerfile
+          oci: true
+          tags: |
+            ${{ env.IMAGE_FULL }}:${{ env.DEFAULT_TAG }}
+
+      - name: "GHCR Login"
+        uses: redhat-actions/podman-login@v1.7
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: "Push container"
+        uses: redhat-actions/push-to-registry@v2.8
+        id: "push"
+        with:
+          tags: |
+            ${{ env.IMAGE_FULL }}:${{ env.DEFAULT_TAG }}
+
+#      - name: "Install Cosign"
+#        uses: sigstore/cosign-installer@v4.1.2
+#
+#      - name: "Sign image by digest"
+#        shell: "bash"
+#        env:
+#          COSIGN_PRIVATE_KEY: ${{ secrets.SIGNING_SECRET }}
+#          DIGEST: ${{ steps.push.outputs.digest }}
+#          IMG: ${{ env.IMAGE_FULL }}
+#        run: |
+#          set -euo pipefail
+#          cosign sign --yes \
+#            --new-bundle-format=false \
+#            --use-signing-config=false \
+#            --key env://COSIGN_PRIVATE_KEY \
+#            "${IMG}@${DIGEST}"

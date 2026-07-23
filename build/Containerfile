@@ -1,0 +1,60 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# Based on https://github.com/containers/image_build (Apache-2.0)
+# Original copyright The Podman Contributors
+# Modifications: switched base to CentOS Stream 10, simplified for personal use
+#
+# Source: https://github.com/containers/image_build/blob/main/aio/Containerfile
+
+FROM quay.io/centos/centos:stream10-minimal
+
+RUN microdnf -y makecache && \
+    microdnf -y update && \
+    microdnf -y install \
+        podman \
+        buildah \
+        skopeo \
+        make \
+        fuse-overlayfs \
+        openssh-clients \
+        git-core \
+        gettext && \
+    rpm --setcaps shadow-utils 2>/dev/null && \
+    microdnf clean all && \
+    rm -rf /var/cache /var/log/dnf* /var/log/yum.*
+
+RUN useradd user && \
+    echo -e "root:1:65535\nuser:1:999\nuser:1001:64535" > /etc/subuid && \
+    echo -e "root:1:65535\nuser:1:999\nuser:1001:64535" > /etc/subgid
+
+ADD /build/containers.conf /etc/containers/containers.conf
+ADD /build/user-containers.conf /home/user/.config/containers/containers.conf
+
+RUN mkdir -p /home/user/.local/share/containers && \
+    mkdir -p /home/user/.config/containers && \
+    chown user:user -R /home/user && \
+    chmod 644 /etc/containers/containers.conf
+
+RUN cp /usr/share/containers/storage.conf /etc/containers/storage.conf && \
+    sed -i \
+        -e 's|^#.*additionalimagestores.*$|additionalimagestores = ["/var/lib/shared"]|' \
+        -e 's|^#mount_program|mount_program|' \
+        -e 's|^mountopt[[:space:]]*=.*$|mountopt = "nodev,fsync=0"|' \
+        /etc/containers/storage.conf
+
+RUN printf '/run/secrets/etc-pki-entitlement:/run/secrets/etc-pki-entitlement\n/run/secrets/rhsm:/run/secrets/rhsm\n' > /etc/containers/mounts.conf
+
+VOLUME /var/lib/containers
+VOLUME /home/user/.local/share/containers
+
+RUN mkdir -p /var/lib/shared/overlay-images \
+             /var/lib/shared/overlay-layers \
+             /var/lib/shared/vfs-images \
+             /var/lib/shared/vfs-layers && \
+    touch /var/lib/shared/overlay-images/images.lock && \
+    touch /var/lib/shared/overlay-layers/layers.lock && \
+    touch /var/lib/shared/vfs-images/images.lock && \
+    touch /var/lib/shared/vfs-layers/layers.lock
+
+ENV _CONTAINERS_USERNS_CONFIGURED="" \
+    BUILDAH_ISOLATION=chroot

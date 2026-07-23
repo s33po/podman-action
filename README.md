@@ -1,9 +1,9 @@
 ## podman-action
 
-Container to run podman and buildah commands in actions.
+Container image for running podman and buildah commands with up-to-date tools in GitHub Actions.
 
-- Built on the official [podman container](https://quay.io/repository/podman/stable) 
-- Added on top: buildah, skopeo and gettext
+- Based on [containers/image_build](https://github.com/containers/image_build) (Apache-2.0)
+- Built on [CentOS Stream 10](https://quay.io/repository/centos/centos) for newer podman, buildah and skopeo
 
 ### Intended for personal use only
 

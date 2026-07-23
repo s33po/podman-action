@@ -28,7 +28,7 @@ jobs:
       - name: "Build"
         uses: redhat-actions/buildah-build@v2.13
         with:
-          containerfiles: ./Containerfile
+          containerfiles: ./build/Containerfile
           oci: true
           tags: |
             ${{ env.IMAGE_FULL }}:${{ env.DEFAULT_TAG }}
